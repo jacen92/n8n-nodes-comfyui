@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-comfyui",
-  "version": "0.0.6",
-  "description": "n8n node to integrate with ComfyUI stable diffusion workflows",
+  "version": "0.0.7",
+  "description": "n8n node to integrate with ComfyUI stable diffusion workflows with video files support",
   "keywords": [
     "n8n-community-node-package",
     "comfyui",
@@ -10,12 +10,12 @@
   "license": "MIT",
   "homepage": "",
   "author": {
-    "name": "mason276752",
-    "email": "mason276752@gmail.com"
+    "name": "jacen92",
+    "email": "jacen92@gmail.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mason276752/n8n-nodes-comfyui.git"
+    "url": "https://github.com/jacen92/n8n-nodes-comfyui.git"
   },
   "engines": {
     "node": ">=18.10",
