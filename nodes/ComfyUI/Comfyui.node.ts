@@ -51,23 +51,31 @@ export class Comfyui implements INodeType {
 						name: 'PNG',
 						value: 'png',
 					},
+					{
+						name: 'WEBM',
+						value: 'webm',
+					},
+					{
+						name: 'WEBP',
+						value: 'webp',
+					},
 				],
 				default: 'jpeg',
 				description: 'The format of the output images',
 			},
 			{
-				displayName: 'JPEG Quality',
-				name: 'jpegQuality',
+				displayName: 'Quality',
+				name: 'quality',
 				type: 'number',
 				typeOptions: {
 					minValue: 1,
 					maxValue: 100
 				},
 				default: 80,
-				description: 'Quality of JPEG output (1-100)',
+				description: 'Quality of JPEG and webP output (1-100)',
 				displayOptions: {
 					show: {
-						outputFormat: ['jpeg'],
+						outputFormat: ['jpeg', 'webP'],
 					},
 				},
 			},
@@ -86,9 +94,9 @@ export class Comfyui implements INodeType {
 		const workflow = this.getNodeParameter('workflow', 0) as string;
 		const timeout = this.getNodeParameter('timeout', 0) as number;
 		const outputFormat = this.getNodeParameter('outputFormat', 0) as string;
-		let jpegQuality: number
+		let quality: number
 		if (outputFormat === 'jpeg') {
-			jpegQuality = this.getNodeParameter('jpegQuality', 0) as number;
+			quality = this.getNodeParameter('quality', 0) as number;
 		}
 
 		const apiUrl = credentials.apiUrl as string;
@@ -178,24 +186,33 @@ export class Comfyui implements INodeType {
 							.flatMap((nodeOutput: any) => nodeOutput.images || [])
 							.filter((image: any) => image.type === 'output' || image.type === 'temp')
 							.map(async (file: any) => {
-								console.log(`[ComfyUI] Downloading ${file.type} image:`, file.filename);
-								let imageUrl = `${apiUrl}/view?filename=${file.filename}&subfolder=${file.subfolder || ''}&type=${file.type || ''}`;
-
+								console.log(`[ComfyUI] Downloading ${file.type} object:`, file.filename);
+								let objectUrl = `${apiUrl}/view?filename=${file.filename}&subfolder=${file.subfolder || ''}&type=${file.type || ''}`;
 
 								try {
-									const imageData = await this.helpers.request({
+									const objectData = await this.helpers.request({
 										method: 'GET',
-										url: imageUrl,
+										url: objectUrl,
 										encoding: null,
 										headers,
 									});
-									const image = await Jimp.read(Buffer.from(imageData, 'base64'));
+									let mimeType: string= outputFormat === 'webm' ? 'video/webm' : `image/${outputFormat}`;
 									let outputBuffer: Buffer;
-									if (outputFormat === 'jpeg') {
-										outputBuffer = await image.getBuffer("image/jpeg", { quality: jpegQuality });
-									} else {
-										outputBuffer = await image.getBuffer(`image/png`);
+									if(["jpeg", "png"].includes(outputFormat)) {
+										const image = await Jimp.read(Buffer.from(objectData, 'base64'));
+										if (outputFormat === 'jpeg') {
+											outputBuffer = await image.getBuffer("image/jpeg", { quality: quality });
+										} else {
+											outputBuffer = await image.getBuffer(`image/png`);
+										}
 									}
+									else if(["webm", "webp"].includes(outputFormat)) {
+										outputBuffer = Buffer.from(objectData, 'base64');
+									}
+									else {
+										throw new NodeApiError(this.getNode(), { message: '[ComfyUI] Output format not supported yet' });
+									}
+
 									const outputBase64 = outputBuffer.toString('base64');
 									const item: INodeExecutionData = {
 										json: {
@@ -208,16 +225,16 @@ export class Comfyui implements INodeType {
 											data: {
 												fileName: file.filename,
 												data: outputBase64,
-												fileType: 'image',
+												fileType: file.type,
 												fileSize: Math.round(outputBuffer.length / 1024 * 10) / 10 + " kB",
 												fileExtension: outputFormat,
-												mimeType: `image/${outputFormat}`,
+												mimeType: mimeType,
 											}
 										}
 									};
 									return item
 								} catch (error) {
-									console.error(`[ComfyUI] Failed to download image ${file.filename}:`, error);
+									console.error(`[ComfyUI] Failed to download object ${file.filename}:`, error);
 									return {
 										json: {
 											filename: file.filename,
